@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { Suspense, useEffect, useState, type FormEvent } from "react";
+import { FavoriteButton, FavoritesProvider } from "@/components/favorite-button";
 import { SiteFooter } from "@/components/footer";
 import { PremiumBadge } from "@/components/premium-badge";
 import { SiteHeader } from "@/components/site-header";
@@ -666,6 +667,11 @@ function ServiceDetailContent() {
           <span className="absolute bottom-5 left-5 inline-flex items-center rounded-full border border-white/70 bg-white/80 px-4 py-2 text-sm font-semibold text-[#4f3d38] backdrop-blur">
             {service.category}
           </span>
+
+          <FavoriteButton
+            serviceId={service._id}
+            className="absolute right-5 top-5 h-11 w-11"
+          />
         </div>
 
         <div className="flex flex-col justify-center">
@@ -749,18 +755,20 @@ function SiteHeaderSkeleton() {
 
 export default function ServiceDetailPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
-      <Suspense fallback={<SiteHeaderSkeleton />}>
-        <SiteHeader />
-      </Suspense>
-
-      <main className="flex-1">
-        <Suspense fallback={<ServiceDetailSkeleton />}>
-          <ServiceDetailContent />
+    <FavoritesProvider>
+      <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
+        <Suspense fallback={<SiteHeaderSkeleton />}>
+          <SiteHeader />
         </Suspense>
-      </main>
 
-      <SiteFooter />
-    </div>
+        <main className="flex-1">
+          <Suspense fallback={<ServiceDetailSkeleton />}>
+            <ServiceDetailContent />
+          </Suspense>
+        </main>
+
+        <SiteFooter />
+      </div>
+    </FavoritesProvider>
   );
 }

@@ -16,6 +16,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
+import { FavoriteButton, FavoritesProvider } from "@/components/favorite-button";
 import { SiteFooter } from "@/components/footer";
 import { PremiumBadge } from "@/components/premium-badge";
 import { SiteHeader } from "@/components/site-header";
@@ -264,17 +265,19 @@ function ServiceCardSkeletons() {
 
 export default function ServicesPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
-      <SiteHeader />
+    <FavoritesProvider>
+      <div className="flex min-h-screen flex-col bg-wedplan-cream text-wedplan-ink">
+        <SiteHeader />
 
-      <main className="flex-1">
-        <Suspense fallback={<ServicesLoading />}>
-          <ServicesPageContent />
-        </Suspense>
-      </main>
+        <main className="flex-1">
+          <Suspense fallback={<ServicesLoading />}>
+            <ServicesPageContent />
+          </Suspense>
+        </main>
 
-      <SiteFooter />
-    </div>
+        <SiteFooter />
+      </div>
+    </FavoritesProvider>
   );
 }
 
@@ -732,6 +735,11 @@ function ServicesBrowser({
                       <div
                         aria-hidden="true"
                         className="absolute inset-0 bg-gradient-to-t from-black/10 via-transparent to-white/10"
+                      />
+
+                      <FavoriteButton
+                        serviceId={service._id}
+                        className="absolute right-4 top-4 z-20"
                       />
 
                       <span className="relative z-10 inline-flex items-center gap-2 rounded-full border border-white/70 bg-white/75 px-3 py-1.5 text-xs font-semibold text-[#4f3d38] backdrop-blur">

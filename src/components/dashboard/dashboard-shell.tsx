@@ -5,6 +5,7 @@ import {
   Clock3,
   Crown,
   CreditCard,
+  Heart,
   Layers,
   LayoutDashboard,
   LayoutGrid,
@@ -38,6 +39,7 @@ const dashboardConfig: Record<DashboardVariant, DashboardConfig> = {
     items: [
       { label: "Overview", href: "/customer", icon: LayoutDashboard },
       { label: "My bookings", href: "/bookings", icon: CalendarDays },
+      { label: "Saved services", href: "/customer/favorites", icon: Heart },
       { label: "Browse services", href: "/services", icon: Search },
       { label: "Profile settings", href: "/settings/profile", icon: UserRound },
     ],
