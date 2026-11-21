@@ -1,9 +1,18 @@
 "use client";
 
-import { ArrowLeft, Save, ShieldCheck, UserRound } from "lucide-react";
+import { addToast } from "@heroui/react";
+import { ArrowLeft, Camera, Save, ShieldCheck, UserRound } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Suspense, useEffect, useState, type FormEvent } from "react";
+import {
+  Suspense,
+  useEffect,
+  useRef,
+  useState,
+  type ChangeEvent,
+  type FormEvent,
+} from "react";
 import { SiteFooter } from "@/components/footer";
 import { SiteHeader } from "@/components/site-header";
 import { authClient } from "@/lib/auth-client";
@@ -140,6 +149,164 @@ function SiteHeaderSkeleton() {
       aria-hidden="true"
       className="h-20 animate-pulse border-b border-[#eaded8] bg-white"
     />
+  );
+}
+
+const MAX_AVATAR_SIZE_BYTES = 2 * 1024 * 1024;
+const AVATAR_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+
+function getAvatarUrl(value: unknown): string | null {
+  if (typeof value !== "string" || !value) {
+    return null;
+  }
+
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.toString() : null;
+  } catch {
+    return null;
+  }
+}
+
+function AvatarUploader() {
+  const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const { data: session } = authClient.useSession();
+  const avatarUrl = getAvatarUrl(session?.user?.image);
+  const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleFileChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+
+    if (!file) {
+      return;
+    }
+
+    if (!AVATAR_TYPES.has(file.type)) {
+      setError("Choose a JPEG, PNG, or WebP image.");
+      return;
+    }
+
+    if (file.size > MAX_AVATAR_SIZE_BYTES) {
+      setError("Your avatar must be 2 MB or smaller.");
+      return;
+    }
+
+    setIsUploading(true);
+    setError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const response = await apiFetch(`${API_BASE_URL}/api/uploads/avatar`, {
+        method: "POST",
+        credentials: "include",
+        body: formData,
+      });
+
+      const payload: unknown = await response.json().catch(() => null);
+
+      if (response.status === 401) {
+        router.replace(
+          `/sign-in?callbackURL=${encodeURIComponent("/settings/profile")}`,
+        );
+        return;
+      }
+
+      if (!response.ok) {
+        throw new Error(
+          getApiErrorMessage(payload) ??
+            `Could not upload your avatar (HTTP ${response.status}).`,
+        );
+      }
+
+      const uploadedUrl = isRecord(payload) ? getAvatarUrl(payload.url) : null;
+
+      if (!uploadedUrl) {
+        throw new Error("The upload API returned an invalid image URL.");
+      }
+
+      const updateResult = await authClient.updateUser({ image: uploadedUrl });
+
+      if (updateResult.error) {
+        throw new Error(
+          updateResult.error.message ?? "Could not save your avatar.",
+        );
+      }
+
+      addToast({ title: "Avatar updated", color: "success" });
+    } catch (requestError) {
+      const message =
+        requestError instanceof TypeError
+          ? "Could not reach WedPlan API. Check that the server is running."
+          : requestError instanceof Error
+            ? requestError.message
+            : "Could not update your avatar.";
+
+      setError(message);
+      addToast({
+        title: "Avatar not updated",
+        description: message,
+        color: "danger",
+      });
+    } finally {
+      setIsUploading(false);
+    }
+  }
+
+  return (
+    <section className="mt-6 rounded-2xl border border-[#eaded8] bg-white p-5 shadow-sm sm:p-7">
+      <div className="flex items-start gap-4">
+        <div className="relative h-16 w-16 shrink-0 overflow-hidden rounded-full bg-[#f5eae5]">
+          {avatarUrl ? (
+            <Image
+              src={avatarUrl}
+              alt="Your profile photo"
+              fill
+              sizes="64px"
+              unoptimized
+              className="object-cover"
+            />
+          ) : (
+            <span className="grid h-full w-full place-items-center text-wedplan-rose">
+              <UserRound aria-hidden="true" className="h-8 w-8" />
+            </span>
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-lg font-semibold">Profile photo</h2>
+          <p className="mt-1 text-sm leading-6 text-stone-600">
+            Shown next to your name across WedPlan. JPEG, PNG, or WebP up to 2
+            MB.
+          </p>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={(event) => void handleFileChange(event)}
+            className="hidden"
+            aria-label="Choose a profile photo"
+          />
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5] disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            <Camera aria-hidden="true" className="h-4 w-4" />
+            {isUploading ? "Uploading..." : avatarUrl ? "Change photo" : "Add photo"}
+          </button>
+          {error && (
+            <p role="alert" className="mt-2 text-sm text-rose-700">
+              {error}
+            </p>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }
 
@@ -631,6 +798,8 @@ function ProfileSettingsContent() {
           </span>
         </p>
       </div>
+
+      <AvatarUploader />
 
       <ProfileEditor
         key={profile.id}

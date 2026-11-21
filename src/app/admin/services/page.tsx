@@ -1,7 +1,15 @@
 "use client";
 
 import { Button } from "@heroui/react";
-import { ArrowLeft, Check, MapPin, Search, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Check,
+  MapPin,
+  RotateCcw,
+  Search,
+  Trash2,
+  X,
+} from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -17,8 +25,8 @@ import {
 type AccountRole = "customer" | "vendor" | "admin";
 type ServiceStatus = "pending" | "approved" | "rejected";
 type StatusFilter = "all" | ServiceStatus;
-type ModerationStatus = "approved" | "rejected";
-type ModerationAction = "approve" | "reject" | "delete";
+type ModerationStatus = "pending" | "approved" | "rejected";
+type ModerationAction = "approve" | "reject" | "reset" | "delete";
 
 type AdminService = {
   _id: string;
@@ -379,7 +387,7 @@ function AdminServicesContent() {
 
   async function handleModeration(serviceId: string, status: ModerationStatus) {
     const action: ModerationAction =
-      status === "approved" ? "approve" : "reject";
+      status === "approved" ? "approve" : status === "rejected" ? "reject" : "reset";
 
     setActionState({ serviceId, action });
     setActionError(null);
@@ -423,7 +431,11 @@ function AdminServicesContent() {
       setDeleteTargetId(null);
       setPage(1);
       setPageNotice(
-        status === "approved" ? "Service approved." : "Service rejected.",
+        status === "approved"
+          ? "Service approved."
+          : status === "rejected"
+            ? "Service rejected."
+            : "Service reset to pending.",
       );
       setRefreshKey((current) => current + 1);
     } catch (requestError) {
@@ -835,6 +847,25 @@ function AdminServicesContent() {
                             {isWorking && actionState?.action === "reject"
                               ? "Rejecting..."
                               : "Reject"}
+                          </button>
+                        )}
+
+                        {service.status !== "pending" && (
+                          <button
+                            type="button"
+                            disabled={actionState !== null}
+                            onClick={() =>
+                              void handleModeration(service._id, "pending")
+                            }
+                            className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-amber-200 px-5 text-sm font-semibold text-amber-800 transition hover:bg-amber-50 disabled:cursor-not-allowed disabled:opacity-60"
+                          >
+                            <RotateCcw
+                              aria-hidden="true"
+                              className="h-4 w-4"
+                            />
+                            {isWorking && actionState?.action === "reset"
+                              ? "Resetting..."
+                              : "Reset to pending"}
                           </button>
                         )}
 

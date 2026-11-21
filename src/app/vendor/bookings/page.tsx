@@ -2,6 +2,14 @@
 
 import Image from "next/image";
 import {
+  addToast,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from "@heroui/react";
+import {
   ArrowLeft,
   CalendarDays,
   Check,
@@ -266,6 +274,7 @@ function VendorBookingsContent() {
   });
 
   const [actionState, setActionState] = useState<BookingActionState>(null);
+  const [rejectTarget, setRejectTarget] = useState<VendorBooking | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState("");
 
@@ -374,13 +383,6 @@ function VendorBookingsContent() {
     booking: VendorBooking,
     decision: BookingDecision,
   ) {
-    if (
-      decision === "rejected" &&
-      !window.confirm("Reject this booking request?")
-    ) {
-      return;
-    }
-
     setActionState({ id: booking.id, decision });
     setActionError(null);
     setActionNotice("");
@@ -418,24 +420,47 @@ function VendorBookingsContent() {
         throw new Error("The bookings API returned an unexpected response.");
       }
 
-      setActionNotice(
+      const notice =
         decision === "accepted"
           ? "Booking request accepted."
-          : "Booking request rejected.",
-      );
+          : "Booking request rejected.";
+
+      setActionNotice(notice);
+      addToast({
+        title: decision === "accepted" ? "Request accepted" : "Request rejected",
+        description: notice,
+        color: "success",
+      });
 
       setRetryKey((current) => current + 1);
     } catch (requestError) {
-      setActionError(
+      const errorMessage =
         requestError instanceof TypeError
           ? "Could not reach WedPlan API. Check that the server is running."
           : requestError instanceof Error
             ? requestError.message
-            : "Could not update the booking.",
-      );
+            : "Could not update the booking.";
+
+      setActionError(errorMessage);
+      addToast({
+        title: "Request not updated",
+        description: errorMessage,
+        color: "danger",
+      });
     } finally {
       setActionState(null);
     }
+  }
+
+  async function handleConfirmReject() {
+    const booking = rejectTarget;
+
+    if (!booking) {
+      return;
+    }
+
+    setRejectTarget(null);
+    await handleDecision(booking, "rejected");
   }
 
   if (isLoading) {
@@ -719,18 +744,12 @@ function VendorBookingsContent() {
 
                         <button
                           type="button"
-                          onClick={() =>
-                            void handleDecision(booking, "rejected")
-                          }
+                          onClick={() => setRejectTarget(booking)}
                           disabled={actionState !== null}
                           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-rose-200 px-5 text-sm font-semibold text-rose-800 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <X aria-hidden="true" className="h-4 w-4" />
-
-                          {actionIsRunning &&
-                          actionState?.decision === "rejected"
-                            ? "Rejecting..."
-                            : "Reject request"}
+                          Reject request
                         </button>
                       </div>
                     )}
@@ -772,6 +791,54 @@ function VendorBookingsContent() {
           </button>
         </nav>
       )}
+
+      <Modal
+        isOpen={rejectTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setRejectTarget(null);
+          }
+        }}
+        placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Reject booking request
+              </ModalHeader>
+              <ModalBody>
+                <p className="text-sm leading-6 text-stone-600">
+                  Reject the request for{" "}
+                  <span className="font-semibold text-wedplan-ink">
+                    {rejectTarget?.serviceName}
+                  </span>
+                  ? The customer will be notified.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5]"
+                >
+                  Keep request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmReject()}
+                  disabled={actionState !== null}
+                  className="inline-flex min-h-10 items-center justify-center rounded-full bg-rose-700 px-5 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {actionState?.decision === "rejected"
+                    ? "Rejecting..."
+                    : "Reject request"}
+                </button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </section>
   );
 }

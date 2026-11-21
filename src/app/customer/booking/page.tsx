@@ -2,6 +2,14 @@
 
 import Image from "next/image";
 import {
+  addToast,
+  Modal,
+  ModalBody,
+  ModalContent,
+  ModalFooter,
+  ModalHeader,
+} from "@heroui/react";
+import {
   ArrowLeft,
   CalendarDays,
   Clock,
@@ -279,6 +287,9 @@ function CustomerBookingsContent() {
   const [cancellingBookingId, setCancellingBookingId] = useState<string | null>(
     null,
   );
+  const [cancelTarget, setCancelTarget] = useState<CustomerBooking | null>(
+    null,
+  );
   const [actionError, setActionError] = useState<string | null>(null);
   const [actionNotice, setActionNotice] = useState("");
 
@@ -381,15 +392,14 @@ function CustomerBookingsContent() {
   const pagination = hasCurrentResult ? requestState.pagination : null;
   const error = hasCurrentResult ? requestState.error : null;
 
-  async function handleCancelBooking(booking: CustomerBooking) {
-    const confirmed = window.confirm(
-      `Cancel your booking request for "${booking.serviceName}"?`,
-    );
+  async function handleConfirmCancel() {
+    const booking = cancelTarget;
 
-    if (!confirmed) {
+    if (!booking) {
       return;
     }
 
+    setCancelTarget(null);
     setCancellingBookingId(booking.id);
     setActionError(null);
     setActionNotice("");
@@ -424,15 +434,26 @@ function CustomerBookingsContent() {
       }
 
       setActionNotice("Booking request cancelled.");
+      addToast({
+        title: "Booking cancelled",
+        description: `Your request for "${booking.serviceName}" was cancelled.`,
+        color: "success",
+      });
       setRetryKey((current) => current + 1);
     } catch (requestError) {
-      setActionError(
+      const errorMessage =
         requestError instanceof TypeError
           ? "Could not reach WedPlan API. Check that the server is running."
           : requestError instanceof Error
             ? requestError.message
-            : "Could not cancel this booking.",
-      );
+            : "Could not cancel this booking.";
+
+      setActionError(errorMessage);
+      addToast({
+        title: "Booking not cancelled",
+        description: errorMessage,
+        color: "danger",
+      });
     } finally {
       setCancellingBookingId(null);
     }
@@ -583,7 +604,6 @@ function CustomerBookingsContent() {
         <div className="mt-6 grid gap-5">
           {bookings.map((booking) => {
             const imageUrl = getSafeImageUrl(booking.serviceImage);
-            const isCancelling = cancellingBookingId === booking.id;
 
             return (
               <article
@@ -716,12 +736,12 @@ function CustomerBookingsContent() {
                       <div className="mt-5 border-t border-[#eaded8] pt-5">
                         <button
                           type="button"
-                          onClick={() => void handleCancelBooking(booking)}
+                          onClick={() => setCancelTarget(booking)}
                           disabled={cancellingBookingId !== null}
                           className="inline-flex min-h-10 items-center justify-center gap-2 rounded-full border border-rose-200 px-5 text-sm font-semibold text-rose-800 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                           <X aria-hidden="true" className="h-4 w-4" />
-                          {isCancelling ? "Cancelling..." : "Cancel request"}
+                          Cancel request
                         </button>
                       </div>
                     )}
@@ -763,6 +783,54 @@ function CustomerBookingsContent() {
           </button>
         </nav>
       )}
+
+      <Modal
+        isOpen={cancelTarget !== null}
+        onOpenChange={(open) => {
+          if (!open) {
+            setCancelTarget(null);
+          }
+        }}
+        placement="center"
+      >
+        <ModalContent>
+          {(onClose) => (
+            <>
+              <ModalHeader className="flex flex-col gap-1">
+                Cancel booking request
+              </ModalHeader>
+              <ModalBody>
+                <p className="text-sm leading-6 text-stone-600">
+                  Cancel your booking request for{" "}
+                  <span className="font-semibold text-wedplan-ink">
+                    {cancelTarget?.serviceName}
+                  </span>
+                  ? This action cannot be undone.
+                </p>
+              </ModalBody>
+              <ModalFooter>
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#e3d4cd] px-5 text-sm font-semibold text-stone-700 transition hover:bg-[#f5eae5]"
+                >
+                  Keep request
+                </button>
+                <button
+                  type="button"
+                  onClick={() => void handleConfirmCancel()}
+                  disabled={cancellingBookingId !== null}
+                  className="inline-flex min-h-10 items-center justify-center rounded-full bg-rose-700 px-5 text-sm font-semibold text-white transition hover:bg-rose-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {cancellingBookingId !== null
+                    ? "Cancelling..."
+                    : "Cancel request"}
+                </button>
+              </ModalFooter>
+            </>
+          )}
+        </ModalContent>
+      </Modal>
     </section>
   );
 }
